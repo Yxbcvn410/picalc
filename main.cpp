@@ -1,39 +1,50 @@
 #include <iostream>
+#include <fstream>
 #include <cmath>
 #include <chrono>
 #include <vector>
+#include "mpi/mpi.h"
 // Карпов: carpson@mail.ru
 
 using namespace std;
 using namespace std::chrono;
 
-double pi_approx_simple(long N) {
+double pi_approx_simple(long N, int k, int rk) {
     double answer = 0.5 / (double) N;
     double n = 1. / (double) N, nn = n * n;
-    double isq = 0;
-    for (long i = 1; i < N; ++i) {
-        isq += i + i - 1;
-        answer += std::sqrt(1 - isq * nn); // Optimize, motherfucker!
+    if (rk == 0)
+        rk = k;
+    for (long i = rk; i < N; i += k) {
+        answer += std::sqrt(1 - (double) (i * i) * nn);
     }
     return answer * 4 * n;
 }
 
 int main() {
-    std::cout.precision(17);
-    std::vector<int> times;
-    int N = 10;
-    for (int i = 0; i < N; ++i) {
-        auto time = std::chrono::steady_clock::now();
-        std::cout << pi_approx_simple(1000000000) << std::endl;
-        times.push_back((duration_cast<milliseconds>(steady_clock::now() - time)).count());
+    int k, rk, N;
+    MPI_Comm_size(MPI_COMM_WORLD, &k);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rk);
+
+    if (rk == 0) {
+        ifstream fs("N.dat", ios::in);
+        fs >> N;
+        fs.close();
+        for (int i = 1; i < k; ++i)
+            MPI_Send(&N, sizeof(typeof(N)), MPI_INT, i, 123, MPI_COMM_WORLD);
+    } else {
+        MPI_Recv(&N, sizeof(typeof(N)), MPI_INT, 0, 123, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
-    double mean = 0, error = 0;
-    for (int t : times)
-        mean += t;
-    mean /= N;
-    for (int t : times)
-        error += (t - mean) * (t - mean);
-    error = std::sqrt(error / N);
-    std::cout << "Profiling results:\nRun time " << mean << " ± " << error << " ms, " << N << " samples" << std::endl;
-    return 0;
+
+    float ps = pi_approx_simple(N, k, rk);
+
+    if (rk == 0){
+        float msg;
+        for (int i = 0; i < N; ++i) {
+            MPI_Recv(&msg, sizeof(typeof(msg)), MPI_FLOAT, i, 234, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            ps += msg;
+        }
+        cout << msg;
+    } else {
+        MPI_Send(&ps, sizeof(typeof(ps)), MPI_FLOAT, 0, 234, MPI_COMM_WORLD);
+    }
 }
