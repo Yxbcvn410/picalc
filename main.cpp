@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
             MPI_Recv(&msg, sizeof(typeof(msg)), MPI_DOUBLE, i, 234, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             result += msg;
         }
-        printf("%.17f", result);
+        printf("%.17f\n", result);
     } else {
         MPI_Send(&result, sizeof(typeof(result)), MPI_DOUBLE, 0, 234, MPI_COMM_WORLD);
     }
