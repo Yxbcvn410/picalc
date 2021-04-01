@@ -31,23 +31,16 @@ int main(int argc, char **argv) {
     if (rank == 0) {
         ifstream fs("N.dat", ios::in);
         fs >> N;
-        for (int i = 1; i < k; ++i)
-            MPI_Send(&N, sizeof(typeof(N)), MPI_LONG, i, 123, MPI_COMM_WORLD);
-    } else {
-        MPI_Recv(&N, sizeof(typeof(N)), MPI_LONG, 0, 123, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
 
+    MPI_Bcast(&N, 1, MPI_LONG, 0, MPI_COMM_WORLD);
     double result = pi_approx_simple(N, k, rank);
+    double f = 0;
+
+    MPI_Reduce(&result, &f, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
-        double msg;
-        for (int i = 1; i < k; ++i) {
-            MPI_Recv(&msg, sizeof(typeof(msg)), MPI_DOUBLE, i, 234, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            result += msg;
-        }
-        printf("%.17f\n", result);
-    } else {
-        MPI_Send(&result, sizeof(typeof(result)), MPI_DOUBLE, 0, 234, MPI_COMM_WORLD);
+        printf("%.17f\n", f);
     }
 
     MPI_Finalize();
